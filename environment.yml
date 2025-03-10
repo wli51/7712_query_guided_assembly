@@ -15,3 +15,4 @@ dependencies:
   - numpy
   - pandas
   - tqdm
+  - conda-forge::biopython
