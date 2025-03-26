@@ -14,7 +14,7 @@ class DeBruijnGraph:
         self._k = k  # k-mer size
         self._graph = {}  # Adjacency list representation of the graph
 
-    def add_edge(self, 
+    def _add_edge(self, 
                  kmer1: str, 
                  kmer2: str):
         """
@@ -40,7 +40,7 @@ class DeBruijnGraph:
             for i in range(len(sequence) - self.k + 1):
                 kmer1 = sequence[i:i + self.k - 1]
                 kmer2 = sequence[i + 1:i + self.k]
-                self.add_edge(kmer1, kmer2)
+                self._add_edge(kmer1, kmer2)
 
     @property
     def graph(self):
