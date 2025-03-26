@@ -11,6 +11,12 @@ class DeBruijnGraph:
         :param k: Length of k-mers used to construct the graph.
         :type k: int
         """
+
+        if not isinstance(k, int):
+            raise TypeError("k must be an integer.")
+        if k < 1:
+            raise ValueError("k must be greater than 0.")
+
         self._k = k  # k-mer size
         self._graph = {}  # Adjacency list representation of the graph
 
@@ -36,6 +42,15 @@ class DeBruijnGraph:
         :param sequences: List of DNA sequences to extract k-mers from.
         :type sequences: List[str]
         """
+
+        if isinstance(sequences, list):
+            if not all(isinstance(sequence, str) for sequence in sequences):
+                raise TypeError("Input sequences must be a list of strings.")
+            else:
+                pass
+        else:
+            raise TypeError("Input sequences must be a list of strings.")
+
         for sequence in sequences:
             for i in range(len(sequence) - self.k + 1):
                 kmer1 = sequence[i:i + self.k - 1]
