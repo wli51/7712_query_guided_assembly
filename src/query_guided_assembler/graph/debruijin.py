@@ -1,6 +1,6 @@
 from typing import List
 
-class DeBruijnGraphBuilder:
+class DeBruijnGraph:
     """
     De Bruijin graph builder class that stores edges as
     adjacency list
