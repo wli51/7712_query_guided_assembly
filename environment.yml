@@ -1,0 +1,18 @@
+name: query_guided_assembly_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pytest
+  - pytest-cov
+  - pytest-mock
+  - pytest-watch
+  - jupyter
+  - jupyterlab
+  - ipykernel
+  - numpy
+  - pandas
+  - tqdm
+  - conda-forge::biopython
