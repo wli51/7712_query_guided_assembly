@@ -1,4 +1,7 @@
 from typing import List
+from collections import Counter
+
+from tqdm import tqdm
 
 class DeBruijnGraph:
     """
@@ -51,7 +54,7 @@ class DeBruijnGraph:
         else:
             raise TypeError("Input sequences must be a list of strings.")
 
-        for sequence in sequences:
+        for sequence in tqdm(sequences, desc="Building De-Bruijn Graph"):
             for i in range(len(sequence) - self.k + 1):
                 kmer1 = sequence[i:i + self.k - 1]
                 kmer2 = sequence[i + 1:i + self.k]
