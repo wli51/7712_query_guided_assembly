@@ -22,6 +22,7 @@ class DeBruijnGraph:
 
         self._k = k  # k-mer size
         self._graph = {}  # Adjacency list representation of the graph
+        self._edge_weights = None # Edge weights for the graph
 
     def _add_edge(self, 
                  kmer1: str, 
@@ -46,6 +47,8 @@ class DeBruijnGraph:
         :type sequences: List[str]
         """
 
+        self._edge_weights = None # Reset edge weights
+
         if isinstance(sequences, list):
             if not all(isinstance(sequence, str) for sequence in sequences):
                 raise TypeError("Input sequences must be a list of strings.")
@@ -60,12 +63,30 @@ class DeBruijnGraph:
                 kmer2 = sequence[i + 1:i + self.k]
                 self._add_edge(kmer1, kmer2)
 
+    def _compute_edge_weights(self):
+        """
+        Compute edge weights for the graph.
+        """
+        self._edge_weights = Counter(
+            (u, v)
+            for u in tqdm(self.graph, desc="Computing Graph Outdegree")
+            for v in self.graph[u]
+        )
+
     @property
     def graph(self):
         """
         Return the current De-Bruijn graph as an adjacency list.
         """
         return self._graph
+    
+    def edge_weights(self):
+        """
+        Return the edge weights for the graph.
+        """
+        if self._edge_weights is None:
+            self._compute_edge_weights()
+        return self._edge_weights
     
     @property
     def k(self):
