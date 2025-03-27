@@ -30,7 +30,7 @@ class AbstractWalk(ABC):
         if verbose:
             self._logger.setLevel(logging.DEBUG)
         else:
-            self._logger.setLevel(logging.INFO)
+            self._logger.setLevel(logging.WARNING)
 
     def _remove_edge(self, u, v):
         """
