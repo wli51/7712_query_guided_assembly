@@ -126,24 +126,24 @@ The project currently supports three traversal strategies, implemented as classe
 - **Logging Support**: Includes verbose/debug logging for inspecting walk behavior.
 - **Walk Entry Logic**: Includes a `_pre_walk_check()` helper to determine a valid starting node, either user-provided or chosen based on out-degree.
 
-#### Eulerian Walk
+#### `EulerianWalk`
 
 - Approximates an Eulerian path, aiming to visit all edges in the graph.
 - Uses a least-visited edge heuristic to avoid overusing paths and reduce premature termination.
 - This approach is deterministic.
 
-#### Greedy StochasticEulerianWalk Walk
+#### `StochasticEulerianWalk`
 
 - Approximates an Eulerian path, selecting the next edge **randomly**, but with stochasticity where traversal is weighted by edge outdegree.
 - Encourages exploration of alternative paths by avoiding deterministic behavior, while still favoring more frequently observed transitions.
 
-#### StochasticGreedyEulerianWalk
+#### `StochasticGreedyEulerianWalk`
 
 - Introduces stochasticity while favoring longer walks:
   - At each node, the next neighbor is selected randomly, but weighted by edge count (probabilistic component).
   - Incorporates a greedy lookahead heuristic that recursively checks potential future routes, to enourage neighbors that are expected to lead to longer paths. This significantly adds to the run complexity.
 
-Both walk classes output a list of nodes representing a path, which is then converted into a full assembled sequence (a **contig**) using the `assemble_path()` function. This utility reconstructs the sequence by merging overlaps between consecutive (k-1)-mers in the path.
+All walk classes output a list of nodes representing a path, which is then converted into a full assembled sequence (a **contig**) using the `assemble_path()` function. This utility reconstructs the sequence by merging overlaps between consecutive (k-1)-mers in the path.
 
 ## Example Usage
 ```python
@@ -176,4 +176,4 @@ path3 = stochastic_greedy_walker.walk(start_node=start_kmer, max_lookahead=3)
 ```
 
 ## Installation
-TODO
+The project is not yet installable. 
