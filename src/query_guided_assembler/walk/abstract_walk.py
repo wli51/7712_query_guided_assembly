@@ -17,10 +17,12 @@ class AbstractWalk(ABC):
         else:
             raise TypeError("Input graph must be an instance of DeBruijnGraph.")
         
+        self.original_graph = graph.graph
 
-        self.graph = copy.deepcopy(graph.graph)
+        # self.graph = copy.deepcopy(graph.graph)
         self.edge_weights = graph.edge_weights()
-        self.visited_edges = Counter()  # useful for Eulerian walk
+        self.graph = None
+        self.visited_edges = ModuleNotFoundError
 
         logging.basicConfig(level=logging.INFO, format="%(message)s")
         self._logger = logging.getLogger(f"{__name__}.id_{id(self)}")
@@ -50,6 +52,12 @@ class AbstractWalk(ABC):
         :param kwargs: Additional keyword arguments.
         :return: Start node for the walk or None if graph is empty.
         """
+
+        # reset visited edges
+        self.visited_edges = Counter()
+        # reset graph if needed
+        self.graph = {k: v.copy() for k, v in self.original_graph.items()} # shallow copy
+
         if not self.graph or len(self.graph) == 0:
             self._logger.info("Graph is empty. No walk performed.")
             return None
