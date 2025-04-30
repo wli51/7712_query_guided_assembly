@@ -52,13 +52,70 @@ def align_reads_to_contig(
 
             # Local alignment windowed if no full match
             if not matches:
+                forward_matches = []
+                reverse_matches = []
+
                 for start in range(len(read) - min_align_len + 1):
                     subseq = read[start:start + min_align_len]
                     for qpos in _binary_search(contig, suffix_array, subseq):
-                        matches.append((read_id, contig_id, start + 1, start + min_align_len, qpos + 1, qpos + min_align_len))
+                        forward_matches.append((read_id, contig_id, start + 1, start + min_align_len, qpos + 1, qpos + min_align_len))
                     subseq_rc = read_rc[start:start + min_align_len]
                     for qpos in _binary_search(contig, suffix_array, subseq_rc):
-                        matches.append((read_id, contig_id, start + min_align_len, start + 1, qpos + 1, qpos + min_align_len))
+                        reverse_matches.append((read_id, contig_id, start + min_align_len, start + 1, qpos + 1, qpos + min_align_len))
+
+                # Merge forward matches
+                merged_forward_match = None
+                for i, _match in enumerate(forward_matches):
+                    if not merged_forward_match:
+                        merged_forward_match = _match
+                        continue
+                    _prev = forward_matches[i - 1]
+                    if (
+                        _prev[2] + 1 == _match[2] and
+                        _prev[3] + 1 == _match[3] and
+                        _prev[4] + 1 == _match[4] and
+                        _prev[5] + 1 == _match[5]
+                    ):
+                        merged_forward_match = (
+                            merged_forward_match[0],  # sseqid
+                            merged_forward_match[1],  # qseqid
+                            merged_forward_match[2],  # sstart
+                            _match[3],                 # new send
+                            merged_forward_match[4],  # qstart
+                            _match[5]                  # new qend
+                        )
+                    else:
+                        matches.append(merged_forward_match)
+                        merged_forward_match = _match
+                if merged_forward_match:
+                    matches.append(merged_forward_match)
+
+                # Merge reverse matches
+                merged_reverse_match = None
+                for i, _match in enumerate(reverse_matches):
+                    if not merged_reverse_match:
+                        merged_reverse_match = _match
+                        continue
+                    _prev = reverse_matches[i - 1]
+                    if (
+                        _prev[2] + 1 == _match[2] and
+                        _prev[3] + 1 == _match[3] and
+                        _prev[4] + 1 == _match[4] and
+                        _prev[5] + 1 == _match[5]
+                    ):
+                        merged_reverse_match = (
+                            merged_reverse_match[0],  # sseqid
+                            merged_reverse_match[1],  # qseqid
+                            _match[2],                # new sstart
+                            merged_reverse_match[3],  # send
+                            merged_reverse_match[4],  # qstart
+                            _match[5]                  # new qend
+                        )
+                    else:
+                        matches.append(merged_reverse_match)
+                        merged_reverse_match = _match
+                if merged_reverse_match:
+                    matches.append(merged_reverse_match)
 
             for match in matches:
                 writer.writerow(match)
