@@ -1,4 +1,5 @@
 import logging
+import uuid
 from pathlib import Path
 from statistics import mean, median
 
@@ -47,7 +48,8 @@ def run_query_guided_assembly(
     """
 
     # -------------------- Set up logging -------------------- #
-    logger = logging.getLogger("query_guided_assembly")
+    logger_id = f"query_guided_assembly_{uuid.uuid4()}"  # ensure uniqueness
+    logger = logging.getLogger(logger_id)
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
 
@@ -55,7 +57,7 @@ def run_query_guided_assembly(
         fh = logging.FileHandler(log_path)
         fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         logger.addHandler(fh)
-        print(f"[INFO] Assembly will be logged in file: {log_path}")
+        print(f"[INFO] Assembly will be logged in file: {log_path.resolve()}")
 
     walk_cls_map = {
         "eulerian": EulerianWalk,
@@ -77,6 +79,7 @@ def run_query_guided_assembly(
     # Load reads and query
     reads = read_fasta_to_list(read_fasta_path)
     query = read_fasta_to_list(query_fasta_path)[0]
+    logger.info(f"Query length: {len(query)}")
     raw_lengths = list(map(len, reads))
     logger.info(f"Raw read count: {len(reads)}")
     logger.info(f"Raw read lengths — mean: {mean(raw_lengths):.1f}, median: {median(raw_lengths)}, min: {min(raw_lengths)}, max: {max(raw_lengths)}")
@@ -105,31 +108,34 @@ def run_query_guided_assembly(
 
     start_kmer = query[-(k - 1):]
     if start_kmer not in dbg_fwd.graph:
-        raise ValueError(f"Forward start k-mer '{start_kmer}' not found in forward graph.")
-
-    walker_fwd = walk_cls(graph=dbg_fwd, verbose=False)
-    fwd_walk_lengths = []
-    if walk_is_stochastic[walk_type]:
-        logger.info(f"Forward walk lengths over {n_runs} runs: {fwd_walk_lengths} ...")
-        best_path_fwd = []
-        for i in range(n_runs):
-            _path_fwd = walker_fwd.walk(start_node=start_kmer)
-            fwd_walk_lengths.append(len(_path_fwd))
-            logger.info(f"Forward walk run {i+1}/{n_runs}: length={len(_path_fwd)}")
-            if len(_path_fwd) > len(best_path_fwd):
-                best_path_fwd = _path_fwd
-        path_fwd = best_path_fwd
-        logger.info(f"Best forward walk length: {len(path_fwd)} at run {fwd_walk_lengths.index(len(path_fwd)) + 1}")
-    else:
-        path_fwd = walker_fwd.walk(start_node=start_kmer)
-        logger.info(f"Forward walk length (deterministic): {len(path_fwd)}")
-
-    if len(path_fwd) == 0:
+        logger.info(f"Start k-mer '{start_kmer}' not found in the graph.")
+        logger.info("Skipping forward extension.")
+        path_fwd = []
         fwd_extension = ""
     else:
-        fwd_extension = assemble_path(path_fwd)
-        # trim away the first k-1 bases
-        fwd_extension = fwd_extension[k - 1:]
+        walker_fwd = walk_cls(graph=dbg_fwd, verbose=False)
+        fwd_walk_lengths = []
+        if walk_is_stochastic[walk_type]:
+            logger.info(f"Forward walk lengths over {n_runs} runs: {fwd_walk_lengths} ...")
+            best_path_fwd = []
+            for i in range(n_runs):
+                _path_fwd = walker_fwd.walk(start_node=start_kmer)
+                fwd_walk_lengths.append(len(_path_fwd))
+                logger.info(f"Forward walk run {i+1}/{n_runs}: length={len(_path_fwd)}")
+                if len(_path_fwd) > len(best_path_fwd):
+                    best_path_fwd = _path_fwd
+            path_fwd = best_path_fwd
+            logger.info(f"Best forward walk length: {len(path_fwd)} at run {fwd_walk_lengths.index(len(path_fwd)) + 1}")
+        else:
+            path_fwd = walker_fwd.walk(start_node=start_kmer)
+            logger.info(f"Forward walk length (deterministic): {len(path_fwd)}")
+
+        if len(path_fwd) == 0:
+            fwd_extension = ""
+        else:
+            fwd_extension = assemble_path(path_fwd)
+            # trim away the first k-1 bases
+            fwd_extension = fwd_extension[k - 1:]
 
     # --- Reverse Extension ---
     rev_reads = get_reverse(fwd_reads)  # reverse both reads and rc(reads)
@@ -138,31 +144,34 @@ def run_query_guided_assembly(
 
     reverse_start_kmer = query[:k - 1][::-1]
     if reverse_start_kmer not in dbg_rev.graph:
-        raise ValueError(f"Reverse start k-mer '{reverse_start_kmer}' not found in reverse graph.")
-
-    walker_rev = walk_cls(graph=dbg_rev, verbose=False)
-    rev_walk_lengths = []
-    if walk_is_stochastic[walk_type]:
-        logger.info(f"Reverse walk lengths over {n_runs} runs: {rev_walk_lengths} ...")
-        best_path_rev = []
-        for i in range(n_runs):
-            _path_rev = walker_rev.walk(start_node=reverse_start_kmer)
-            rev_walk_lengths.append(len(_path_rev))
-            logger.info(f"Reverse walk run {i+1}/{n_runs}: length={len(_path_rev)}")
-            if len(_path_rev) > len(best_path_rev):
-                best_path_rev = _path_rev
-        path_rev = best_path_rev
-        logger.info(f"Best reverse walk length: {len(path_rev)} at run {rev_walk_lengths.index(len(path_rev)) + 1}")
-    else:
-        path_rev = walker_rev.walk(start_node=reverse_start_kmer)
-        logger.info(f"Reverse walk length (deterministic): {len(path_rev)}")
-
-    if len(path_rev) == 0:
+        logger.info(f"Reverse start k-mer '{reverse_start_kmer}' not found in the graph.")
+        logger.info("Skipping reverse extension.")
+        path_rev = []
         rev_extension = ""
     else:
-        rev_extension = assemble_path(path_rev)[::-1]  # reverse the result
-        # trim away the last k-1 bases
-        rev_extension = rev_extension[:-(k - 1)]
+        walker_rev = walk_cls(graph=dbg_rev, verbose=False)
+        rev_walk_lengths = []
+        if walk_is_stochastic[walk_type]:
+            logger.info(f"Reverse walk lengths over {n_runs} runs: {rev_walk_lengths} ...")
+            best_path_rev = []
+            for i in range(n_runs):
+                _path_rev = walker_rev.walk(start_node=reverse_start_kmer)
+                rev_walk_lengths.append(len(_path_rev))
+                logger.info(f"Reverse walk run {i+1}/{n_runs}: length={len(_path_rev)}")
+                if len(_path_rev) > len(best_path_rev):
+                    best_path_rev = _path_rev
+            path_rev = best_path_rev
+            logger.info(f"Best reverse walk length: {len(path_rev)} at run {rev_walk_lengths.index(len(path_rev)) + 1}")
+        else:
+            path_rev = walker_rev.walk(start_node=reverse_start_kmer)
+            logger.info(f"Reverse walk length (deterministic): {len(path_rev)}")
+
+        if len(path_rev) == 0:
+            rev_extension = ""
+        else:
+            rev_extension = assemble_path(path_rev)[::-1]  # reverse the result
+            # trim away the last k-1 bases
+            rev_extension = rev_extension[:-(k - 1)]
 
     # Combine into final contig
     full_contig = rev_extension + query + fwd_extension
