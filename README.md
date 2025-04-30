@@ -32,37 +32,39 @@ The program produces:
 
 ## Repository Structure
 
+
 ```
 .
-├── README.md                    # This file
+├── README.md
 ├── LICENSE
-├── environment.yml              # Conda environment specification
-├── pytest.ini                   # Pytest configuration
+├── environment.yml
+├── pytest.ini
+├── setup.py
 ├── src/
 │   └── query_guided_assembler/
 │       ├── alignment/
-│       │   └── exact_aligner.py         # Suffix array-based exact aligner
+│       │   └── exact_aligner.py
 │       ├── graph/
-│       │   └── debruijin.py             # De Bruijn graph construction logic
+│       │   └── debruijin.py
 │       ├── preprocessing/
-│       │   ├── read_kmer_freq_filter.py # K-mer-based and low-complexity filtering
-│       │   ├── read_length_filter.py    # Read length filtering
-│       │   └── read_trimmer.py          # End trimming for reads
+│       │   ├── read_kmer_freq_filter.py
+│       │   ├── read_length_filter.py
+│       │   └── read_trimmer.py
 │       ├── utils/
-│       │   └── read_fasta.py            # FASTA/FASTQ I/O utilities
+│       │   └── read_fasta.py
 │       └── walk/
-│           ├── abstract_walk.py         # Base class for traversal strategies
-│           ├── eulerian_walk.py         # Eulerian walk strategies
-│           └── utils.py                 # Path assembly and walk scoring helpers
-├── test/
-│   ├── test_aligner/
-│   │   └── test_alignment.py            # Unit tests for the exact aligner
-│   ├── test_graph/
-│   │   └── test_debruijn_graph.py       # Tests for De Bruijn graph construction
-│   └── test_preprocessing/
-│       ├── test_read_kmer_freq_filter.py
-│       ├── test_read_length_filter.py
-│       └── test_read_trimmer.py
+│           ├── abstract_walk.py
+│           ├── eulerian_walk.py
+│           └── utils.py
+└── test/
+    ├── test_aligner/
+    │   └── test_alignment.py
+    ├── test_graph/
+    │   └── test_debruijn_graph.py
+    └── test_preprocessing/
+        ├── test_read_kmer_freq_filter.py
+        ├── test_read_length_filter.py
+        └── test_read_trimmer.py
 ```
 
 The `src/` directory contains all functional modules, while the `test/` directory contains unit tests organized by module. This structure follows standard Python packaging conventions and is compatible with `pytest`.
@@ -80,22 +82,6 @@ The preprocessing module includes functions for filtering and trimming reads bef
 
 - `read_length_filter(reads: List[str], min_length: int) -> List[str]`  
   Filters out reads shorter than a specified minimum length.
-
-- `read_kmer_freq_filter(reads: List[str], k: int, min_kmer_freq: int, low_complexity_threshold: float = 0.8) -> List[str]`  
-  Filters reads based on:
-  - **K-mer frequency**: retains reads only if all their k-mers appear at least `min_kmer_freq` times across the dataset. Meant to exclude reads containing low frequency kmers relative to the pool due to them being potentially erroneous reads. 
-  - **Low-complexity check**: optionally removes reads dominated by a single nucleotide (controlled by `low_complexity_threshold`) to reduce the chance of downstream assembly to be stuck in short repeat cycles.
-
-#### Helper Functions
-
-- `_compute_kmer_frequencies(reads: List[str], k: int) -> dict[str, int]`  
-  Computes the frequency of each k-mer in the list of reads.
-
-- `_passes_kmer_freq_filter(read: str, kmer_counts: dict[str, int], min_kmer_freq: int, k: int) -> bool`  
-  Returns True if all k-mers in a read meet the frequency threshold.
-
-- `_is_low_complexity(read: str, low_complexity_threshold: float = 0.8) -> bool`  
-  Returns True if a read is composed primarily of a single nucleotide. This helps remove artifacts and repetitive noise.
 
 These preprocessing steps can be chained together to clean raw sequencing reads before constructing the De Bruijn graph.
 
@@ -145,7 +131,19 @@ The project currently supports three traversal strategies, implemented as classe
 
 All walk classes output a list of nodes representing a path, which is then converted into a full assembled sequence (a **contig**) using the `assemble_path()` function. This utility reconstructs the sequence by merging overlaps between consecutive (k-1)-mers in the path.
 
-## Example Usage
+### Alignment Module
+
+After assembling the longest contig containing the query, the tool performs **exact alignments** of the original sequencing reads against the contig using a **suffix array–based alignment algorithm**. This alignment process:
+
+- First attempts to align each read and its reverse complement as a **full-length exact match** to the contig.
+- If no full match is found, it performs a **sliding window search** of each read and its reverse complement to identify **local exact matches** using a configurable minimum match length (e.g., 20 bp).
+- All matching regions are recorded in a tab-delimited alignment file (`ALLELES.aln`), with strand-aware coordinate formatting: matches on the reverse strand are reported with `send < sstart`.
+
+The alignment implementation is efficient and deterministic, relying entirely on binary search over a suffix array built from the contig. This allows rapid identification of both full-length and partial matches across many reads. The alignment suite is located in `alignment/exact_aligner.py` and `alignment/aligner.py`.
+
+The wrapping contig-read alignment function first attempts full read alignment with the contig and falls back to attempting to align smaller substrings of the reads against the contig. This is feasible due to the alignment itself being relatively efficient.
+
+## Walk Example Usage (Programmatic)
 ```python
 from query_guided_assembler.utils.read_fasta import read_fasta_to_list
 from query_guided_assembler.graph import DeBruijnGraph
@@ -176,4 +174,44 @@ path3 = stochastic_greedy_walker.walk(start_node=start_kmer, max_lookahead=3)
 ```
 
 ## Installation
-The project is not yet installable. 
+
+To install the package and expose the CLI tool `query-guided-assembly`, run:
+
+This will:
+- Make the `query_guided_assembler` package importable in your Python environment
+- Enable usage of the CLI command `query-guided-assembly` from anywhere in your terminal
+
+```bash
+pip install -e .
+```
+---
+
+## Command-Line Usage
+
+Once installed, the tool can be run via the `query-guided-assembly` command.
+
+### Example:
+
+```bash
+query-guided-assembly \
+  --reads data/READS.fasta \
+  --query data/QUERY.fasta \
+  --k 31 \
+  --min_length 75 \
+  --trim 3 \
+  --walk_type stochastic_greedy \
+  --n_runs 10 \
+  --min_align_len 20
+```
+
+### Required Arguments:
+- `--reads`: path to input FASTA file of sequencing reads (can be gzipped)
+- `--query`: path to input FASTA file of query sequence
+
+### Optional Arguments:
+- `--k`: k-mer size (default: 31)
+- `--min_length`: minimum read length to keep (default: 75)
+- `--trim`: number of bases to trim from both ends of each read (default: 3)
+- `--walk_type`: assembly walk type (`eulerian`, `stochastic`, or `stochastic_greedy`)
+- `--n_runs`: number of stochastic walk repetitions (default: 10)
+- `--min_align_len`: minimum substring length used for local alignment (default: 20)
