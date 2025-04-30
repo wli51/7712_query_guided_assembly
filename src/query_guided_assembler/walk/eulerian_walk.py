@@ -89,6 +89,11 @@ class StochasticEulerianWalk(AbstractWalk):
             neighbors = self._get_neighbors(current_node)
             weights = [self.edge_weights[(current_node, n)] for n in neighbors]
 
+            if sum(weights) == 0:
+                # If all weights are zero, break the loop
+                self._logger.info(f"All edges from {current_node} have been visited. Stopping walk.")
+                break
+
             # choose the path stochastically weighted by out-degree
             next_node = random.choices(neighbors, weights=weights, k=1)[0]
 
@@ -153,6 +158,11 @@ class StochasticGreedyEulerianWalk(AbstractWalk):
                 self.edge_weights[(current_node, n)] * (1 + neighbor_scores[n])
                 for n in neighbors
             ]
+
+            if sum(weights) == 0:
+                # If all weights are zero, break the loop
+                self._logger.info(f"All edges from {current_node} have been visited. Stopping walk.")
+                break
 
             next_node = random.choices(neighbors, weights=weights, k=1)[0]
 
